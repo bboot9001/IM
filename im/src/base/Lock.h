@@ -10,7 +10,7 @@
 ================================================================*/
 #ifndef __LOCK_H_
 #define __LOCK_H_
-#ifndef _WIN32
+#ifdef _WIN32
 	#include <windows.h>
 #else 
 	#include "ostype.h"
@@ -36,7 +36,7 @@ public:
 #endif
 
 private:
-#ifndef _WIN32
+#ifdef _WIN32
 	CRITICAL_SECTION m_critical_section;
 #else 
 	pthread_mutex_t m_lock;
