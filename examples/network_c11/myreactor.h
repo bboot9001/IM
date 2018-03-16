@@ -22,7 +22,7 @@ public:
 
 public:
 	bool init(const char* ip,int nport);
-	bool unint();
+	bool uninit();
 	bool close_client(int client);
 
 	static void* main_loop(void* p);

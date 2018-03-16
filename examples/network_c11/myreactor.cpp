@@ -19,7 +19,7 @@
 bool myreactor::create_server_listener(const char* ip,int port)
 {
 	m_listenfd = socket(AF_INET,SOCK_STREAM | SOCK_NONBLOCK,0);
-	if (m_lisenfd == -1)
+	if (m_listenfd == -1)
 	{
 		return false;
 	}
@@ -59,7 +59,7 @@ bool myreactor::create_server_listener(const char* ip,int port)
      	return false;
      }
 
-     return ture;
+     return true;
 }
 
 bool myreactor::init(const char* ip,int nport)
@@ -71,9 +71,9 @@ bool myreactor::init(const char* ip,int nport)
 	}
 
 	std::cout<<"main thread id="<<std::this_thread::get_id()<<std::endl;
-	m_accpetthread.reset(new std::thread(myreactor::accept_thread_proc,this));
+	m_acceptthread.reset(new std::thread(myreactor::accept_thread_proc,this));
 
-	for(auto& t : m_workthreads)
+	for(auto& t : m_workerthreads)
 	{
 		t.reset(new std::thread(myreactor::worker_thread_proc,this));
 	}
@@ -86,7 +86,7 @@ bool myreactor::uninit()
 	m_bStop = true;
 	m_acceptcond.notify_one();
 	m_workercond.notify_all();
-	m_acceptthread.join();
+	m_acceptthread->join();
 
 	for(auto& t:m_workerthreads)
 	{
@@ -94,8 +94,8 @@ bool myreactor::uninit()
 	}
 
 	::epoll_ctl(m_epollfd,EPOLL_CTL_DEL,m_listenfd,NULL);
-	::shuntdown(m_listenfd,SHUT_RDWR);
-	::close(M_listenfd);
+	::shutdown(m_listenfd,SHUT_RDWR);
+	::close(m_listenfd);
 	::close(m_epollfd);
 	return true;
 }
@@ -104,7 +104,7 @@ bool myreactor::close_client(int clientfd)
 {
 	if (::epoll_ctl(m_epollfd,EPOLL_CTL_DEL,clientfd,NULL) == -1)
 	{
-		std:cout<<"close client socket failed as call epoll_ctl faild"<<std::endl;
+		std::cout<<"close client socket failed as call epoll_ctl faild"<<std::endl;
 	}
 	::close(clientfd);
 	return true;
@@ -133,9 +133,9 @@ void* myreactor::main_loop(void* p)
 		int m = min(n,1024);
 		for(int i = 0;i < m;++i)
 		{
-			if (ev[i].data.fd == m_listenfd)
+			if (ev[i].data.fd == pThis-> m_listenfd)
 			{
-				pThis->m_acceptcond.notifyone();
+				pThis->m_acceptcond.notify_one();
 			}
 			else
 			{
@@ -144,7 +144,7 @@ void* myreactor::main_loop(void* p)
 					pThis->m_listClients.push_back(ev[i].data.fd);
 				}
 
-				pThis->m_workercond.notifyone();
+				pThis->m_workercond.notify_one();
 			}
 		}
 
@@ -154,7 +154,7 @@ void* myreactor::main_loop(void* p)
 	return NULL;
 }
 
- void myreactor::accept_thread_proc(myreactor* pReatcor)
+ void myreactor::accept_thread_proc(myreactor* pThis)
  {
  	std::cout<<"accept thread ,thread id ="<<std::this_thread::get_id()<<std::endl;
 
@@ -165,7 +165,7 @@ void* myreactor::main_loop(void* p)
  		socklen_t addrlen;
  		{
  			std::unique_lock<std::mutex> guard(pThis->m_acceptmutex);
- 			pthis->m_acceptcond.wait(guard);
+ 			pThis->m_acceptcond.wait(guard);
  			if (pThis->m_bStop)
  			{
  				/* code */
@@ -189,7 +189,7 @@ void* myreactor::main_loop(void* p)
  		int newflag  = oldflags | O_NONBLOCK;
  		if (::fcntl(newfd,F_SETFL,newflag) == -1)
  		{
- 			std::cout<<"fcntl error,oldflag ="<<oldflag<<", newflag ="<<newflag<<std::endl;
+ 			std::cout<<"fcntl error,oldflag ="<<oldflags<<", newflag ="<<newflag<<std::endl;
  			continue;
  			/* code */
  		}
@@ -208,7 +208,7 @@ void* myreactor::main_loop(void* p)
  	std::cout<<"accept thread exit ..."<<std::endl;
  }
 
- void myreactor::worker_thread_proc(myreactor* pReatcor)
+ void myreactor::worker_thread_proc(myreactor* pThis)
 {
 	std::cout<<"new worker thread , thread id ="<<std::this_thread::get_id()<<std::endl;
 
@@ -261,7 +261,7 @@ void* myreactor::main_loop(void* p)
 			else if (nRecv == 0)
 			{
 			    std::cout << "peer closed, client disconnected, fd = " << clientfd << std::endl;
-				pReatcor->close_client(clientfd);
+				pThis->close_client(clientfd);
 				bError = true;
 				break;
 			}
@@ -301,7 +301,7 @@ void* myreactor::main_loop(void* p)
 				else
 				{
 					std::cout << "send error, fd = " << clientfd << std::endl;
-					pReatcor->close_client(clientfd);
+					pThis->close_client(clientfd);
 					break;
 				}
 
