@@ -81,7 +81,7 @@ bool myreactor::init(const char* ip,int nport)
 	return true;
 }
 
-bool myreactor::unint()
+bool myreactor::uninit()
 {
 	m_bStop = true;
 	m_acceptcond.notify_one();
@@ -313,7 +313,7 @@ void* myreactor::main_loop(void* p)
 			if (strclientmsg.empty())
 				break;
 		}
-		
+
 		}
 	}
 }
